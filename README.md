@@ -132,6 +132,31 @@ docker rm tg-standup-bot
 # 然後重新運行上面的 docker run 命令
 ```
 
+## Docker 管理指令
+
+```bash
+# 查看容器狀態
+docker ps
+
+# 查看日誌
+docker logs tg-standup-bot
+
+# 停止機器人
+docker stop tg-standup-bot
+
+# 重啟機器人
+docker restart tg-standup-bot
+
+# 刪除容器
+docker rm tg-standup-bot
+
+# 更新到最新版本
+docker pull ghcr.io/123hi123/tg-standup-bot:latest
+docker stop tg-standup-bot
+docker rm tg-standup-bot
+# 然後重新運行上面的 docker run 命令
+```
+
 ## 專案結構
 
 ```

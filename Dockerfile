@@ -7,14 +7,17 @@ WORKDIR /app
 # 複製 package.json 和 package-lock.json
 COPY package*.json ./
 
-# 安裝依賴
-RUN npm ci --only=production
+# 安裝所有依賴（包括 devDependencies，構建需要）
+RUN npm ci
 
 # 複製原始碼
 COPY . .
 
 # 編譯 TypeScript
 RUN npm run build
+
+# 清理 devDependencies 以減小鏡像大小
+RUN npm prune --production
 
 # 暴露端口（如果需要的話）
 # EXPOSE 3000
