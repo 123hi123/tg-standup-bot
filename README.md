@@ -58,6 +58,14 @@ services:
 docker-compose up -d
 ```
 
+### 🔄 一鍵更新容器
+
+如果你已經在運行機器人，只需複製下面這行命令即可更新到最新版本：
+
+```bash
+docker pull ghcr.io/123hi123/tg-standup-bot:latest && docker stop tg-standup-bot && docker rm tg-standup-bot && docker run -d --name tg-standup-bot --env-file .env --restart unless-stopped ghcr.io/123hi123/tg-standup-bot:latest
+```
+
 ### 📦 可用的 Docker 標籤
 
 - `latest` - 最新穩定版本 (main 分支)
