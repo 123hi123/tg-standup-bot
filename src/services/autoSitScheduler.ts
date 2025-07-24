@@ -4,7 +4,8 @@ import TelegramBot from 'node-telegram-bot-api';
 import { SessionManager } from './sessionManager';
 
 export class AutoSitScheduler {
-  private job: cron.ScheduledTask | null = null;
+  private startJob: cron.ScheduledTask | null = null;
+  private stopJob: cron.ScheduledTask | null = null;
   private bot: TelegramBot;
   private sessionManager: SessionManager;
 
@@ -15,21 +16,34 @@ export class AutoSitScheduler {
 
   start(): void {
     // Schedule for 9:10 AM Taiwan time, Monday to Friday
-    this.job = cron.schedule('10 9 * * 1-5', () => {
+    this.startJob = cron.schedule('10 9 * * 1-5', () => {
       this.checkAndAutoSit();
     }, {
       timezone: 'Asia/Taipei'
     });
 
-    console.log('自動坐下排程已啟動 (週一至週五 9:10 AM)');
+    // Schedule for 6:00 PM Taiwan time, Monday to Friday
+    this.stopJob = cron.schedule('0 18 * * 1-5', () => {
+      this.checkAndAutoStop();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+
+    console.log('自動排程已啟動:');
+    console.log('- 自動坐下: 週一至週五 9:10 AM');
+    console.log('- 自動停止: 週一至週五 6:00 PM');
   }
 
   stop(): void {
-    if (this.job) {
-      this.job.stop();
-      this.job = null;
-      console.log('自動坐下排程已停止');
+    if (this.startJob) {
+      this.startJob.stop();
+      this.startJob = null;
     }
+    if (this.stopJob) {
+      this.stopJob.stop();
+      this.stopJob = null;
+    }
+    console.log('自動排程已停止');
   }
 
   private async checkAndAutoSit(): Promise<void> {
@@ -64,6 +78,31 @@ export class AutoSitScheduler {
     }
   }
 
+  private async checkAndAutoStop(): Promise<void> {
+    const sessions = this.sessionManager.getAllSessions();
+    
+    for (const [userId, session] of sessions) {
+      // Only auto-stop if user has active timer (sitting or standing)
+      if (session.status === 'sitting' || session.status === 'standing') {
+        try {
+          // Delete session (this will clear all timers)
+          this.sessionManager.deleteSession(userId);
+
+          // Send notification
+          await this.bot.sendMessage(
+            session.chatId,
+            '🌙 *下班時間到囉！*\n\n系統偵測到現在是下班時間（6:00 PM），已自動停止計時。\n\n今天辛苦了，記得好好休息！\n\n明天上班後使用 /start 重新開始計時。',
+            { parse_mode: 'Markdown' }
+          );
+
+          console.log(`自動停止已執行 - 使用者: ${userId}`);
+        } catch (error) {
+          console.error(`自動停止失敗 - 使用者 ${userId}:`, error);
+        }
+      }
+    }
+  }
+
   // Check if current time is after 9:10 AM on weekdays in Taiwan timezone
   isAfterWorkStart(): boolean {
     const now = moment().tz('Asia/Taipei');
@@ -72,7 +111,7 @@ export class AutoSitScheduler {
     
     // Monday (1) to Friday (5)
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      return currentTime >= '09:10';
+      return currentTime >= '09:10' && currentTime < '18:00';
     }
     
     return false;
