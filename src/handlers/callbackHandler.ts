@@ -59,8 +59,8 @@ export class CallbackHandler {
       reminderTimer: undefined,
     });
 
-    // 開始站立計時
-    this.timerService.startStandingTimer(session);
+    // 開始站立計時 (自動觸發的站立，非手動)
+    this.timerService.startStandingTimer(session, false);
     
     await this.bot.answerCallbackQuery(query.id, { text: '已記錄你站起來了！' });
   }
@@ -74,18 +74,11 @@ export class CallbackHandler {
       clearTimeout(session.currentTimer);
     }
 
-    // 詢問是否要坐下
-    const keyboard = {
-      inline_keyboard: [[
-        { text: KEYBOARD_BUTTONS.SIT_DOWN, callback_data: 'sit_down' }
-      ]]
-    };
-
     const elapsedMinutes = this.sessionManager.getElapsedMinutes(session);
-    const message = `你提早站起來了！已經坐了 ${elapsedMinutes} 分鐘。\n\n站立結束後請點擊下方按鈕：`;
+    const message = `🚶 *手動站立*\n\n你提早站起來了！已經坐了 ${elapsedMinutes} 分鐘。\n\n⏱ 將在 10 分鐘後自動坐下`;
 
     const sentMessage = await this.bot.sendMessage(chatId, message, {
-      reply_markup: keyboard
+      parse_mode: 'Markdown'
     });
 
     this.sessionManager.updateSession(userId, {
@@ -93,9 +86,13 @@ export class CallbackHandler {
       currentTimer: undefined,
       lastMessageId: sentMessage.message_id,
       lastActionTime: new Date(),
+      isManualStandup: true,
     });
 
-    await this.bot.answerCallbackQuery(query.id, { text: '已記錄你站起來了！' });
+    // 開始站立計時 (手動觸發，10分鐘)
+    this.timerService.startStandingTimer(session, true);
+
+    await this.bot.answerCallbackQuery(query.id, { text: '已記錄你站起來了！將在10分鐘後自動坐下' });
   }
 
   private async handleSitDown(query: TelegramBot.CallbackQuery, userId: number, chatId: number): Promise<void> {

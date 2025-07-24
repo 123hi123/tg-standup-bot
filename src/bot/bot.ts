@@ -3,6 +3,7 @@ import { SessionManager } from '../services/sessionManager';
 import { TimerService } from '../services/timerService';
 import { CommandHandler } from '../handlers/commandHandler';
 import { CallbackHandler } from '../handlers/callbackHandler';
+import { AutoSitScheduler } from '../services/autoSitScheduler';
 import { BotCommand } from '../types';
 
 export class StandUpBot {
@@ -11,18 +12,22 @@ export class StandUpBot {
   private timerService: TimerService;
   private commandHandler: CommandHandler;
   private callbackHandler: CallbackHandler;
+  private autoSitScheduler: AutoSitScheduler;
 
   constructor(token: string) {
     this.bot = new TelegramBot(token, { polling: true });
     this.sessionManager = new SessionManager();
     this.timerService = new TimerService(this.bot, this.sessionManager);
+    this.sessionManager.setTimerService(this.timerService);
     this.commandHandler = new CommandHandler(this.bot, this.sessionManager, this.timerService);
     this.callbackHandler = new CallbackHandler(this.bot, this.sessionManager, this.timerService);
+    this.autoSitScheduler = new AutoSitScheduler(this.bot, this.sessionManager);
   }
 
   async init(): Promise<void> {
     await this.setBotCommands();
     this.registerHandlers();
+    this.autoSitScheduler.start();
     console.log('機器人已啟動！');
   }
 

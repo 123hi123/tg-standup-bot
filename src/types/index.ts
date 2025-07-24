@@ -9,6 +9,8 @@ export interface UserSession {
   lastMessageId?: number;
   sessionStartTime?: Date;
   lastActionTime?: Date;
+  isManualStandup?: boolean;
+  autoSitScheduler?: NodeJS.Timeout;
 }
 
 export interface UserSettings {

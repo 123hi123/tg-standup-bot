@@ -29,7 +29,7 @@ export class TimerService {
     });
   }
 
-  startStandingTimer(session: UserSession): void {
+  startStandingTimer(session: UserSession, isManual: boolean = false): void {
     if (session.currentTimer) {
       clearTimeout(session.currentTimer);
     }
@@ -37,15 +37,20 @@ export class TimerService {
       clearInterval(session.reminderTimer);
     }
 
+    // If manual standup, use 10 minutes; otherwise use configured duration (5 minutes)
+    const standDurationMinutes = isManual ? 10 : session.standDurationMinutes;
+    
     const timer = setTimeout(() => {
-      this.sendSitReminder(session);
-    }, session.standDurationMinutes * 60 * 1000);
+      // Auto sit down after standing timer expires
+      this.autoSitDown(session);
+    }, standDurationMinutes * 60 * 1000);
 
     this.sessionManager.updateSession(session.userId, {
       status: 'standing',
       currentTimer: timer,
       lastActionTime: new Date(),
       reminderTimer: undefined,
+      isManualStandup: isManual,
     });
   }
 
@@ -86,25 +91,23 @@ export class TimerService {
     }
   }
 
-  private async sendSitReminder(session: UserSession): Promise<void> {
-    const message = MESSAGES.TIME_TO_SIT.replace('%d', session.standDurationMinutes.toString());
-    
-    const keyboard = {
-      inline_keyboard: [[
-        { text: KEYBOARD_BUTTONS.SIT_DOWN, callback_data: 'sit_down' }
-      ]]
-    };
 
+  private async autoSitDown(session: UserSession): Promise<void> {
     try {
-      const sentMessage = await this.bot.sendMessage(session.chatId, message, {
-        reply_markup: keyboard
+      // Start sitting timer automatically
+      this.startSittingTimer(session);
+      
+      // Send auto-sit notification
+      const standMinutes = session.isManualStandup ? 10 : session.standDurationMinutes;
+      const message = `🪑 *自動坐下*\n\n您已站立 ${standMinutes} 分鐘，系統已自動為您開始計時坐下。\n\n記得保持良好的坐姿喔！`;
+      
+      await this.bot.sendMessage(session.chatId, message, {
+        parse_mode: 'Markdown'
       });
 
-      this.sessionManager.updateSession(session.userId, {
-        lastMessageId: sentMessage.message_id,
-      });
+      console.log(`自動坐下已觸發 - 使用者: ${session.userId}`);
     } catch (error) {
-      console.error('發送坐下提醒失敗:', error);
+      console.error('自動坐下失敗:', error);
     }
   }
 
