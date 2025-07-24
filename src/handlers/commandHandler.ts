@@ -39,7 +39,7 @@ export class CommandHandler {
     // Monday (1) to Friday (5) after 9:10 AM
     if (dayOfWeek >= 1 && dayOfWeek <= 5 && currentTime >= '09:10') {
       isAutoSit = true;
-      startMessage = `🪑 *自動坐下模式*\n\n系統偵測到現在是工作時間（週一至週五 ${currentTime}），已為您開始計時坐下。\n\n⏱ 將在 ${session.sitDurationMinutes} 分鐘後提醒您站起來活動`;
+      startMessage = `🪑 *自動切換坐下*\n\n系統偵測到現在是工作時間（週一至週五 ${currentTime}），已自動為您開始計時坐下。\n\n⏱ 將在 ${session.sitDurationMinutes} 分鐘後提醒您站起來活動`;
     }
 
     const keyboard = {

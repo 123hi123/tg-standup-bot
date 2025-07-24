@@ -77,8 +77,15 @@ export class CallbackHandler {
     const elapsedMinutes = this.sessionManager.getElapsedMinutes(session);
     const message = `🚶 *手動站立*\n\n你提早站起來了！已經坐了 ${elapsedMinutes} 分鐘。\n\n⏱ 將在 10 分鐘後自動坐下`;
 
+    const keyboard = {
+      inline_keyboard: [[
+        { text: KEYBOARD_BUTTONS.SIT_DOWN, callback_data: 'sit_down' }
+      ]]
+    };
+
     const sentMessage = await this.bot.sendMessage(chatId, message, {
-      parse_mode: 'Markdown'
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
     });
 
     this.sessionManager.updateSession(userId, {
