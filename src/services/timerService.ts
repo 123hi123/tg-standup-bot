@@ -99,7 +99,7 @@ export class TimerService {
       
       // Send auto-sit notification
       const standMinutes = session.isManualStandup ? 10 : session.standDurationMinutes;
-      const message = `🪑 *自動坐下*\n\n您已站立 ${standMinutes} 分鐘，系統已自動為您開始計時坐下。\n\n記得保持良好的坐姿喔！`;
+      const message = `🪑 *自動開始坐下計時*\n\n您已站立 ${standMinutes} 分鐘，系統已自動幫您按下坐下按鈕。\n\n記得保持良好的坐姿喔！`;
       
       await this.bot.sendMessage(session.chatId, message, {
         parse_mode: 'Markdown'

@@ -66,7 +66,7 @@ export class AutoSitScheduler {
           // Send notification
           await this.bot.sendMessage(
             session.chatId,
-            '🪑 *自動坐下提醒*\n\n系統偵測到現在是工作時間（週一至週五 9:10 AM），已自動為您開始計時坐下 45 分鐘。\n\n記得適時站起來活動喔！',
+            '🪑 *自動開始坐下計時*\n\n現在是 9:10 AM，系統已自動幫您按下坐下按鈕，開始計時 45 分鐘。\n\n記得適時站起來活動喔！',
             { parse_mode: 'Markdown' }
           );
 
