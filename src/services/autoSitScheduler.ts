@@ -53,22 +53,36 @@ export class AutoSitScheduler {
       // Only auto-sit if user is idle or standing
       if (session.status === 'idle' || session.status === 'standing') {
         try {
-          // Start sitting session
+          // First send notification about auto-sit
+          await this.bot.sendMessage(
+            session.chatId,
+            '🪑 *自動開始坐下計時*\n\n現在是 9:10 AM，系統已自動幫您按下坐下按鈕。',
+            { parse_mode: 'Markdown' }
+          );
+
+          // Then send the normal sitting message with stand button
+          const keyboard = {
+            inline_keyboard: [[
+              { text: '🚶 站起來', callback_data: 'stand_up_early' }
+            ]]
+          };
+
+          const sentMessage = await this.bot.sendMessage(
+            session.chatId, 
+            '開始計時！你已經坐下了。',
+            { reply_markup: keyboard }
+          );
+
+          // Update session
           this.sessionManager.updateSession(userId, {
             status: 'sitting',
             sessionStartTime: new Date(),
-            lastActionTime: new Date()
+            lastActionTime: new Date(),
+            lastMessageId: sentMessage.message_id
           });
 
           // Start the sitting timer
           await this.sessionManager.startSittingTimer(userId);
-
-          // Send notification
-          await this.bot.sendMessage(
-            session.chatId,
-            '🪑 *自動開始坐下計時*\n\n現在是 9:10 AM，系統已自動幫您按下坐下按鈕，開始計時 45 分鐘。\n\n記得適時站起來活動喔！',
-            { parse_mode: 'Markdown' }
-          );
 
           console.log(`自動坐下已啟動 - 使用者: ${userId}`);
         } catch (error) {

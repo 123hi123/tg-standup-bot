@@ -94,16 +94,37 @@ export class TimerService {
 
   private async autoSitDown(session: UserSession): Promise<void> {
     try {
-      // Start sitting timer automatically
-      this.startSittingTimer(session);
+      // Clear standing timer
+      if (session.currentTimer) {
+        clearTimeout(session.currentTimer);
+      }
       
-      // Send auto-sit notification
+      // First send notification about auto-sit
       const standMinutes = session.isManualStandup ? 10 : session.standDurationMinutes;
-      const message = `🪑 *自動開始坐下計時*\n\n您已站立 ${standMinutes} 分鐘，系統已自動幫您按下坐下按鈕。\n\n記得保持良好的坐姿喔！`;
+      await this.bot.sendMessage(
+        session.chatId, 
+        `🪑 *自動開始坐下計時*\n\n您已站立 ${standMinutes} 分鐘，系統已自動幫您按下坐下按鈕。`,
+        { parse_mode: 'Markdown' }
+      );
       
-      await this.bot.sendMessage(session.chatId, message, {
-        parse_mode: 'Markdown'
+      // Then send the normal sitting message with stand button (same as manual sit)
+      const keyboard = {
+        inline_keyboard: [[
+          { text: KEYBOARD_BUTTONS.STAND_UP, callback_data: 'stand_up_early' }
+        ]]
+      };
+
+      const sentMessage = await this.bot.sendMessage(session.chatId, MESSAGES.START_SITTING, {
+        reply_markup: keyboard
       });
+
+      this.sessionManager.updateSession(session.userId, {
+        lastMessageId: sentMessage.message_id,
+      });
+
+      // Start sitting timer and status updater
+      this.startSittingTimer(session);
+      this.startStatusUpdater(session);
 
       console.log(`自動坐下已觸發 - 使用者: ${session.userId}`);
     } catch (error) {
