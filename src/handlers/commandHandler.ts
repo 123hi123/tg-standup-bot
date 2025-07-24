@@ -36,8 +36,8 @@ export class CommandHandler {
     let isAutoSit = false;
     let startMessage = MESSAGES.START_SITTING;
     
-    // Monday (1) to Friday (5) after 9:10 AM
-    if (dayOfWeek >= 1 && dayOfWeek <= 5 && currentTime >= '09:10') {
+    // Monday (1) to Friday (5) between 9:10 AM and 6:00 PM
+    if (dayOfWeek >= 1 && dayOfWeek <= 5 && currentTime >= '09:10' && currentTime < '18:00') {
       isAutoSit = true;
       startMessage = `🪑 *自動切換坐下*\n\n系統偵測到現在是工作時間（週一至週五 ${currentTime}），已自動為您開始計時坐下。\n\n⏱ 將在 ${session.sitDurationMinutes} 分鐘後提醒您站起來活動`;
     }
