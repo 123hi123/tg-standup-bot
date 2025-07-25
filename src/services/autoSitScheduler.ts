@@ -50,8 +50,8 @@ export class AutoSitScheduler {
     const sessions = this.sessionManager.getAllSessions();
     
     for (const [userId, session] of sessions) {
-      // Only auto-sit if user is idle or standing
-      if (session.status === 'idle' || session.status === 'standing') {
+      // Auto-sit if user is not currently sitting
+      if (session.status !== 'sitting') {
         try {
           // First send notification about auto-sit
           await this.bot.sendMessage(
