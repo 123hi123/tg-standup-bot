@@ -41,8 +41,8 @@ export class TimerService {
     const standDurationMinutes = isManual ? 10 : session.standDurationMinutes;
     
     const timer = setTimeout(() => {
-      // Auto sit down after standing timer expires
-      this.autoSitDown(session);
+      // Send sit down reminder after standing timer expires
+      this.sendSitReminder(session);
     }, standDurationMinutes * 60 * 1000);
 
     this.sessionManager.updateSession(session.userId, {
@@ -52,6 +52,9 @@ export class TimerService {
       reminderTimer: undefined,
       isManualStandup: isManual,
     });
+
+    // Start standing status updater
+    this.startStandingStatusUpdater(session);
   }
 
   private async sendStandReminder(session: UserSession): Promise<void> {
@@ -92,22 +95,56 @@ export class TimerService {
   }
 
 
-  private async autoSitDown(session: UserSession): Promise<void> {
+  private async sendSitReminder(session: UserSession): Promise<void> {
     try {
       // Clear standing timer
       if (session.currentTimer) {
         clearTimeout(session.currentTimer);
       }
       
-      // First send notification about auto-sit
       const standMinutes = session.isManualStandup ? 10 : session.standDurationMinutes;
+      const message = MESSAGES.TIME_TO_SIT.replace('%d', standMinutes.toString());
+      
+      // Send reminder with sit down button
+      const keyboard = {
+        inline_keyboard: [[
+          { text: KEYBOARD_BUTTONS.SIT_DOWN, callback_data: 'sit_down' }
+        ]]
+      };
+
+      const sentMessage = await this.bot.sendMessage(session.chatId, message, {
+        reply_markup: keyboard
+      });
+
+      this.sessionManager.updateSession(session.userId, {
+        lastMessageId: sentMessage.message_id,
+        currentTimer: undefined,
+      });
+
+      // Set a 5-minute timer for auto sit down if user doesn't respond
+      const autoSitTimer = setTimeout(() => {
+        this.autoSitDownAfterReminder(session);
+      }, 5 * 60 * 1000);
+
+      this.sessionManager.updateSession(session.userId, {
+        currentTimer: autoSitTimer,
+      });
+
+      console.log(`坐下提醒已發送 - 使用者: ${session.userId}`);
+    } catch (error) {
+      console.error('發送坐下提醒失敗:', error);
+    }
+  }
+
+  private async autoSitDownAfterReminder(session: UserSession): Promise<void> {
+    try {
+      // Send notification about auto-sit
       await this.bot.sendMessage(
         session.chatId, 
-        `🪑 *自動開始坐下計時*\n\n您已站立 ${standMinutes} 分鐘，系統已自動幫您按下坐下按鈕。`,
-        { parse_mode: 'Markdown' }
+        '⏰ 已經過了 5 分鐘，系統自動幫您開始坐下計時。'
       );
       
-      // Then send the normal sitting message with stand button (same as manual sit)
+      // Send the normal sitting message with stand button
       const keyboard = {
         inline_keyboard: [[
           { text: KEYBOARD_BUTTONS.STAND_UP, callback_data: 'stand_up_early' }
@@ -119,14 +156,17 @@ export class TimerService {
       });
 
       this.sessionManager.updateSession(session.userId, {
+        status: 'sitting',
         lastMessageId: sentMessage.message_id,
+        lastActionTime: new Date(),
+        sessionStartTime: new Date(),
       });
 
       // Start sitting timer and status updater
       this.startSittingTimer(session);
       this.startStatusUpdater(session);
 
-      console.log(`自動坐下已觸發 - 使用者: ${session.userId}`);
+      console.log(`自動坐下已觸發（5分鐘後） - 使用者: ${session.userId}`);
     } catch (error) {
       console.error('自動坐下失敗:', error);
     }
@@ -163,6 +203,42 @@ export class TimerService {
         return;
       }
       await this.updateSittingStatus(currentSession);
+    }, 60 * 1000); // 每分鐘更新一次
+  }
+
+  async updateStandingStatus(session: UserSession): Promise<void> {
+    if (!session.lastMessageId || session.status !== 'standing') return;
+
+    const elapsedMinutes = this.sessionManager.getElapsedMinutes(session);
+    const standDurationMinutes = session.isManualStandup ? 10 : session.standDurationMinutes;
+    const message = `🚶 *站立中*\n\n⏱ 已站立 ${elapsedMinutes} 分鐘 / ${standDurationMinutes} 分鐘`;
+
+    const keyboard = {
+      inline_keyboard: [[
+        { text: KEYBOARD_BUTTONS.SIT_DOWN, callback_data: 'sit_down' }
+      ]]
+    };
+
+    try {
+      await this.bot.editMessageText(message, {
+        chat_id: session.chatId,
+        message_id: session.lastMessageId,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+    } catch (error) {
+      console.error('更新站立狀態失敗:', error);
+    }
+  }
+
+  startStandingStatusUpdater(session: UserSession): void {
+    const updateInterval = setInterval(async () => {
+      const currentSession = this.sessionManager.getSession(session.userId);
+      if (!currentSession || currentSession.status !== 'standing') {
+        clearInterval(updateInterval);
+        return;
+      }
+      await this.updateStandingStatus(currentSession);
     }, 60 * 1000); // 每分鐘更新一次
   }
 }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Telegram bot built with TypeScript that reminds users to stand up regularly to avoid health issues from prolonged sitting. The bot uses a timer-based system with interactive inline keyboard buttons.
+This is a Telegram bot built with TypeScript that reminds users to stand up regularly to avoid health issues from prolonged sitting. The bot features automatic scheduling for Taiwan work hours (9:10 AM - 6:00 PM) and uses a timer-based system with interactive inline keyboard buttons.
 
 ## Development Commands
 
@@ -21,14 +21,12 @@ npm run build
 # Run production build
 npm start
 
-# Linting
-npm run lint
-
-# Format code
-npm run format
+# Linting and formatting
+npm run lint          # ESLint check
+npm run format        # Prettier formatting
 
 # Run tests
-npm test
+npm test             # Run Jest tests
 
 # Docker commands
 npm run docker:build  # Build Docker image
@@ -37,44 +35,58 @@ npm run docker:stop   # Stop container
 npm run docker:logs   # View logs
 ```
 
-## Architecture
+## Key Architecture Components
 
-The codebase follows a modular TypeScript architecture:
+### Timer System Flow
+The bot implements a work-break cycle:
+1. **Sitting Phase** (default 45 min) → triggers stand reminder
+2. **Standing Phase** (default 5 min) → triggers sit notification
+3. **Auto-sit at 9:10 AM** on weekdays if not already sitting
+4. **Auto-stop at 6:00 PM** on weekdays to end work sessions
 
-- **Entry Point**: `src/index.ts` - Initializes bot with environment configuration
-- **Bot Core**: `src/bot/bot.ts` - Main `StandUpBot` class that coordinates all bot functionality
-- **Handlers**: 
-  - `src/handlers/commandHandler.ts` - Processes Telegram commands (/start, /stop, etc.)
-  - `src/handlers/callbackHandler.ts` - Handles inline keyboard button interactions
-- **Services**:
-  - `src/services/sessionManager.ts` - Manages user session state and timers
-  - `src/services/timerService.ts` - Handles countdown timers and notifications
-- **Configuration**: `src/config/constants.ts` - Default durations and constants
-- **Types**: `src/types/index.ts` - TypeScript interfaces and type definitions
+### Core Services Architecture
+- **StandUpBot** (`src/bot/bot.ts`): Central coordinator that initializes handlers and manages the AutoSitScheduler
+- **SessionManager** (`src/services/sessionManager.ts`): Manages user sessions in memory, handles timer lifecycle
+- **TimerService** (`src/services/timerService.ts`): Countdown implementation with reminder notifications
+- **AutoSitScheduler** (`src/services/autoSitScheduler.ts`): Cron-based scheduler for automatic work hour management
 
-## Key Dependencies
+### Message Flow
+1. Commands (e.g., `/start`) → CommandHandler → SessionManager → TimerService
+2. Button clicks → CallbackHandler → SessionManager → Bot sends response
+3. Timer expiry → TimerService → Bot sends reminder → User confirms → Cycle continues
 
-- `node-telegram-bot-api` - Telegram Bot API wrapper
-- `node-cron` - For scheduling tasks
-- `dotenv` - Environment variable management
-- TypeScript with strict mode enabled
+## Technical Configuration
 
-## Environment Setup
+### TypeScript Setup
+- Strict mode enabled with all strict checks
+- Target: ES2022, Module: CommonJS
+- No unused locals/parameters allowed
+- Consistent casing enforced
 
-Requires a `.env` file with:
+### Environment Variables
 ```
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-DEFAULT_SIT_DURATION=45  # Optional: minutes
-DEFAULT_STAND_DURATION=5  # Optional: minutes
+TELEGRAM_BOT_TOKEN=required_bot_token
+DEFAULT_SIT_DURATION=45  # minutes
+DEFAULT_STAND_DURATION=5  # minutes
 ```
 
-## Testing Strategy
+### Time Zone Handling
+The bot uses `moment-timezone` for Taiwan time (Asia/Taipei):
+- Auto-sit: 9:10 AM on weekdays
+- Auto-stop: 6:00 PM on weekdays
+- All scheduling respects Taiwan timezone
 
-The project uses Jest with ts-jest for testing. Run tests with `npm test`.
+## Testing Approach
+
+Currently using Jest with ts-jest for unit testing. When writing tests:
+- Mock Telegram Bot API responses
+- Test timer state transitions
+- Verify session management logic
+- Check timezone-based scheduling
 
 ## Docker Deployment
 
-The project is containerized and automatically published to GitHub Container Registry:
-- Image: `ghcr.io/123hi123/tg-standup-bot:latest`
-- Multi-architecture support (amd64, arm64)
-- Automated CI/CD via GitHub Actions
+The project uses GitHub Actions for CI/CD:
+- Multi-arch images: `linux/amd64` and `linux/arm64`
+- Registry: `ghcr.io/123hi123/tg-standup-bot`
+- Auto-builds on push to `main` or `develop` branches

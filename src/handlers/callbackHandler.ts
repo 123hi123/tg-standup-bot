@@ -53,7 +53,7 @@ export class CallbackHandler {
     }
 
     // 發送站立中訊息（坐滿時間後的正常站立）
-    const message = `🚶 *站立中*\n\n你已經完成了 ${session.sitDurationMinutes} 分鐘的坐下時間！\n\n⏱ 將在 ${session.standDurationMinutes} 分鐘後自動坐下`;
+    const message = MESSAGES.STANDING;
     
     const keyboard = {
       inline_keyboard: [[
@@ -95,7 +95,7 @@ export class CallbackHandler {
     } else {
       message += `已經坐了 ${elapsedMinutes} 分鐘。`;
     }
-    message += `\n\n⏱ 將在 10 分鐘後自動坐下`;
+    message += `\n\n⏱ 將在 10 分鐘後提醒坐下`;
 
     const keyboard = {
       inline_keyboard: [[
@@ -119,7 +119,7 @@ export class CallbackHandler {
     // 開始站立計時 (手動觸發，10分鐘)
     this.timerService.startStandingTimer(session, true);
 
-    await this.bot.answerCallbackQuery(query.id, { text: '已記錄你站起來了！將在10分鐘後自動坐下' });
+    await this.bot.answerCallbackQuery(query.id, { text: '已記錄你站起來了！將在10分鐘後提醒坐下' });
   }
 
   private async handleSitDown(query: TelegramBot.CallbackQuery, userId: number, chatId: number): Promise<void> {
