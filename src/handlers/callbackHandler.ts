@@ -26,6 +26,7 @@ export class CallbackHandler {
 
     switch (data) {
       case 'stand_up':
+        // 當坐滿時間後的提醒按鈕，直接站立
         await this.handleStandUp(query, userId, chatId);
         break;
       
@@ -51,15 +52,26 @@ export class CallbackHandler {
       clearInterval(session.reminderTimer);
     }
 
-    // 發送站立中訊息
-    const sentMessage = await this.bot.sendMessage(chatId, MESSAGES.STANDING);
+    // 發送站立中訊息（坐滿時間後的正常站立）
+    const message = `🚶 *站立中*\n\n你已經完成了 ${session.sitDurationMinutes} 分鐘的坐下時間！\n\n⏱ 將在 ${session.standDurationMinutes} 分鐘後自動坐下`;
+    
+    const keyboard = {
+      inline_keyboard: [[
+        { text: KEYBOARD_BUTTONS.SIT_DOWN, callback_data: 'sit_down' }
+      ]]
+    };
+    
+    const sentMessage = await this.bot.sendMessage(chatId, message, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+    });
     
     this.sessionManager.updateSession(userId, {
       lastMessageId: sentMessage.message_id,
       reminderTimer: undefined,
     });
 
-    // 開始站立計時 (自動觸發的站立，非手動)
+    // 開始站立計時 (正常站立，使用設定的站立時間)
     this.timerService.startStandingTimer(session, false);
     
     await this.bot.answerCallbackQuery(query.id, { text: '已記錄你站起來了！' });
@@ -75,7 +87,15 @@ export class CallbackHandler {
     }
 
     const elapsedMinutes = this.sessionManager.getElapsedMinutes(session);
-    const message = `🚶 *手動站立*\n\n你提早站起來了！已經坐了 ${elapsedMinutes} 分鐘。\n\n⏱ 將在 10 分鐘後自動坐下`;
+    const isEarly = elapsedMinutes < session.sitDurationMinutes;
+    
+    let message = `🚶 *手動站立*\n\n`;
+    if (isEarly) {
+      message += `你提早站起來了！已經坐了 ${elapsedMinutes} 分鐘。`;
+    } else {
+      message += `已經坐了 ${elapsedMinutes} 分鐘。`;
+    }
+    message += `\n\n⏱ 將在 10 分鐘後自動坐下`;
 
     const keyboard = {
       inline_keyboard: [[
