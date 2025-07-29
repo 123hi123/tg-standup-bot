@@ -1,13 +1,15 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { SessionManager } from '../services/sessionManager';
 import { TimerService } from '../services/timerService';
+import { UserRegistry } from '../services/userRegistry';
 import { MESSAGES, KEYBOARD_BUTTONS } from '../config/constants';
 
 export class CommandHandler {
   constructor(
     private bot: TelegramBot,
     private sessionManager: SessionManager,
-    private timerService: TimerService
+    private timerService: TimerService,
+    private userRegistry: UserRegistry
   ) {}
 
   async handleStart(msg: TelegramBot.Message): Promise<void> {
@@ -15,6 +17,9 @@ export class CommandHandler {
     const chatId = msg.chat.id;
 
     if (!userId) return;
+
+    // Register user in the registry
+    this.userRegistry.registerUser(userId, chatId);
 
     let session = this.sessionManager.getSession(userId);
     
@@ -118,5 +123,52 @@ export class CommandHandler {
   async handleHelp(msg: TelegramBot.Message): Promise<void> {
     const chatId = msg.chat.id;
     await this.bot.sendMessage(chatId, MESSAGES.WELCOME);
+  }
+
+  async handleAutoSit(msg: TelegramBot.Message): Promise<void> {
+    const userId = msg.from?.id;
+    const chatId = msg.chat.id;
+
+    if (!userId) return;
+
+    const text = msg.text || '';
+    const parts = text.split(' ');
+
+    if (parts.length === 1) {
+      // Show current status
+      const user = this.userRegistry.getUser(userId);
+      const status = (user?.autoSitEnabled ?? true) ? '開啟' : '關閉';
+      await this.bot.sendMessage(
+        chatId,
+        `🪑 *自動坐下功能*\n\n目前狀態：${status}\n\n使用 \`/autosit on\` 開啟\n使用 \`/autosit off\` 關閉`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    const action = parts[1].toLowerCase();
+    if (action === 'on') {
+      this.userRegistry.registerUser(userId, chatId);
+      this.userRegistry.setAutoSitEnabled(userId, true);
+      await this.bot.sendMessage(
+        chatId,
+        '✅ 已開啟自動坐下功能\n\n系統將在每個工作日的 9:10 AM 自動幫您開始坐下計時。',
+        { parse_mode: 'Markdown' }
+      );
+    } else if (action === 'off') {
+      this.userRegistry.registerUser(userId, chatId);
+      this.userRegistry.setAutoSitEnabled(userId, false);
+      await this.bot.sendMessage(
+        chatId,
+        '❌ 已關閉自動坐下功能\n\n您需要手動使用 /start 開始計時。',
+        { parse_mode: 'Markdown' }
+      );
+    } else {
+      await this.bot.sendMessage(
+        chatId,
+        '❌ 無效的參數\n\n使用 `/autosit on` 開啟\n使用 `/autosit off` 關閉',
+        { parse_mode: 'Markdown' }
+      );
+    }
   }
 }

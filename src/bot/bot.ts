@@ -4,6 +4,7 @@ import { TimerService } from '../services/timerService';
 import { CommandHandler } from '../handlers/commandHandler';
 import { CallbackHandler } from '../handlers/callbackHandler';
 import { AutoSitScheduler } from '../services/autoSitScheduler';
+import { UserRegistry } from '../services/userRegistry';
 import { BotCommand } from '../types';
 
 export class StandUpBot {
@@ -13,15 +14,17 @@ export class StandUpBot {
   private commandHandler: CommandHandler;
   private callbackHandler: CallbackHandler;
   private autoSitScheduler: AutoSitScheduler;
+  private userRegistry: UserRegistry;
 
   constructor(token: string) {
     this.bot = new TelegramBot(token, { polling: true });
+    this.userRegistry = new UserRegistry();
     this.sessionManager = new SessionManager();
     this.timerService = new TimerService(this.bot, this.sessionManager);
     this.sessionManager.setTimerService(this.timerService);
-    this.commandHandler = new CommandHandler(this.bot, this.sessionManager, this.timerService);
+    this.commandHandler = new CommandHandler(this.bot, this.sessionManager, this.timerService, this.userRegistry);
     this.callbackHandler = new CallbackHandler(this.bot, this.sessionManager, this.timerService);
-    this.autoSitScheduler = new AutoSitScheduler(this.bot, this.sessionManager);
+    this.autoSitScheduler = new AutoSitScheduler(this.bot, this.sessionManager, this.userRegistry);
   }
 
   async init(): Promise<void> {
@@ -37,6 +40,7 @@ export class StandUpBot {
       { command: 'stop', description: '停止計時' },
       { command: 'status', description: '查看當前狀態' },
       { command: 'settings', description: '調整設定' },
+      { command: 'autosit', description: '設定自動坐下功能' },
       { command: 'help', description: '顯示幫助訊息' },
     ];
 
@@ -49,6 +53,7 @@ export class StandUpBot {
     this.bot.onText(/\/stop/, (msg) => this.commandHandler.handleStop(msg));
     this.bot.onText(/\/status/, (msg) => this.commandHandler.handleStatus(msg));
     this.bot.onText(/\/settings/, (msg) => this.commandHandler.handleSettings(msg));
+    this.bot.onText(/\/autosit/, (msg) => this.commandHandler.handleAutoSit(msg));
     this.bot.onText(/\/help/, (msg) => this.commandHandler.handleHelp(msg));
 
     // Callback 查詢處理

@@ -2,16 +2,19 @@ import * as cron from 'node-cron';
 import moment from 'moment-timezone';
 import TelegramBot from 'node-telegram-bot-api';
 import { SessionManager } from './sessionManager';
+import { UserRegistry } from './userRegistry';
 
 export class AutoSitScheduler {
   private startJob: cron.ScheduledTask | null = null;
   private stopJob: cron.ScheduledTask | null = null;
   private bot: TelegramBot;
   private sessionManager: SessionManager;
+  private userRegistry: UserRegistry;
 
-  constructor(bot: TelegramBot, sessionManager: SessionManager) {
+  constructor(bot: TelegramBot, sessionManager: SessionManager, userRegistry: UserRegistry) {
     this.bot = bot;
     this.sessionManager = sessionManager;
+    this.userRegistry = userRegistry;
   }
 
   start(): void {
@@ -47,47 +50,65 @@ export class AutoSitScheduler {
   }
 
   private async checkAndAutoSit(): Promise<void> {
-    const sessions = this.sessionManager.getAllSessions();
+    // Get all registered users
+    const registeredUsers = this.userRegistry.getAllUsers();
     
-    for (const [userId, session] of sessions) {
-      // Auto-sit if user is not currently sitting
-      if (session.status !== 'sitting') {
-        try {
-          // First send notification about auto-sit
-          await this.bot.sendMessage(
-            session.chatId,
-            '🪑 *自動開始坐下計時*\n\n現在是 9:10 AM，系統已自動幫您按下坐下按鈕。',
-            { parse_mode: 'Markdown' }
-          );
-
-          // Then send the normal sitting message with stand button
-          const keyboard = {
-            inline_keyboard: [[
-              { text: '🚶 站起來', callback_data: 'stand_up_early' }
-            ]]
-          };
-
-          const sentMessage = await this.bot.sendMessage(
-            session.chatId, 
-            '開始計時！你已經坐下了。',
-            { reply_markup: keyboard }
-          );
-
-          // Update session
-          this.sessionManager.updateSession(userId, {
-            status: 'sitting',
-            sessionStartTime: new Date(),
-            lastActionTime: new Date(),
-            lastMessageId: sentMessage.message_id
-          });
-
-          // Start the sitting timer
-          await this.sessionManager.startSittingTimer(userId);
-
-          console.log(`自動坐下已啟動 - 使用者: ${userId}`);
-        } catch (error) {
-          console.error(`自動坐下失敗 - 使用者 ${userId}:`, error);
+    for (const user of registeredUsers) {
+      // Skip if auto-sit is disabled for this user
+      if (!user.autoSitEnabled) continue;
+      
+      const userId = user.userId;
+      const chatId = user.chatId;
+      
+      // Check if user already has an active session
+      let session = this.sessionManager.getSession(userId);
+      
+      // Skip if user is already sitting
+      if (session && session.status === 'sitting') continue;
+      
+      try {
+        // Create session if doesn't exist
+        if (!session) {
+          session = this.sessionManager.createSession(userId, chatId);
         }
+        
+        // First send notification about auto-sit
+        await this.bot.sendMessage(
+          chatId,
+          '🪑 *自動開始坐下計時*\n\n現在是 9:10 AM，系統已自動幫您按下坐下按鈕。',
+          { parse_mode: 'Markdown' }
+        );
+
+        // Then send the normal sitting message with stand button
+        const keyboard = {
+          inline_keyboard: [[
+            { text: '🚶 站起來', callback_data: 'stand_up_early' }
+          ]]
+        };
+
+        const sentMessage = await this.bot.sendMessage(
+          chatId, 
+          '開始計時！你已經坐下了。',
+          { reply_markup: keyboard }
+        );
+
+        // Update session
+        this.sessionManager.updateSession(userId, {
+          status: 'sitting',
+          sessionStartTime: new Date(),
+          lastActionTime: new Date(),
+          lastMessageId: sentMessage.message_id
+        });
+
+        // Start the sitting timer
+        await this.sessionManager.startSittingTimer(userId);
+        
+        // Update last seen in registry
+        this.userRegistry.updateLastSeen(userId);
+
+        console.log(`自動坐下已啟動 - 使用者: ${userId}`);
+      } catch (error) {
+        console.error(`自動坐下失敗 - 使用者 ${userId}:`, error);
       }
     }
   }
